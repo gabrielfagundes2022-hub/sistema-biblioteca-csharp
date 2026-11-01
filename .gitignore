@@ -1,0 +1,9 @@
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+
+# Compilação
+bin/
+obj/
