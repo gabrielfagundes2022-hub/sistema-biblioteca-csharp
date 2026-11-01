@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRUD da Biblioteca</title>
+<style>
+  :root {
+    --bg: #f4f5fb;
+    --surface: #ffffff;
+    --text: #151a33;
+    --muted: #5b6283;
+    --line: #d9dcec;
+    --accent: #1c2fb5;
+    --accent-text: #ffffff;
+    --accent-soft: #e8ebff;
+    --danger: #b3261e;
+    --ok: #1b7a3d;
+    --field-bg: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d0f1c;
+      --surface: #161a2e;
+      --text: #eceefb;
+      --muted: #a2a8c8;
+      --line: #2a3050;
+      --accent: #8fa0ff;
+      --accent-text: #0d0f1c;
+      --accent-soft: #1f2548;
+      --danger: #ff8a80;
+      --ok: #6fdc8c;
+      --field-bg: #0f1224;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d0f1c; --surface: #161a2e; --text: #eceefb; --muted: #a2a8c8;
+    --line: #2a3050; --accent: #8fa0ff; --accent-text: #0d0f1c; --accent-soft: #1f2548;
+    --danger: #ff8a80; --ok: #6fdc8c; --field-bg: #0f1224;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.5;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 32px 16px 56px; }
+  h1 { margin: 0 0 4px; font-size: 1.7rem; letter-spacing: -.01em; }
+  .intro { margin: 0 0 24px; color: var(--muted); }
+
+  /* abas */
+  .tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+  .tab {
+    border: 1px solid var(--line); background: var(--surface); color: var(--text);
+    padding: 9px 18px; border-radius: 10px; font: inherit; cursor: pointer;
+  }
+  .tab[aria-selected="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; margin-bottom: 20px; }
+  .card h2 { margin: 0 0 14px; font-size: 1.1rem; }
+
+  label { display: block; font-size: .85rem; font-weight: 600; margin-bottom: 4px; }
+  input {
+    width: 100%; padding: 10px 12px; font: inherit; color: var(--text);
+    background: var(--field-bg); border: 1px solid var(--line); border-radius: 8px;
+  }
+  input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  input:disabled { opacity: .65; cursor: not-allowed; }
+
+  .busca { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; }
+  .campos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 18px; }
+  .campos .full { grid-column: span 2; }
+
+  .msg { min-height: 1.5em; margin: 14px 0 0; font-size: .95rem; color: var(--muted); }
+  .msg.ok { color: var(--ok); }
+  .msg.erro { color: var(--danger); }
+
+  .acoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  button.btn {
+    font: inherit; font-weight: 600; padding: 10px 18px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--surface); color: var(--text);
+  }
+  button.primario { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button.perigo { color: var(--danger); border-color: var(--danger); }
+  button.perigo.cheio { background: var(--danger); color: var(--surface); }
+
+  /* tabela */
+  .tabela { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .93rem; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--accent-soft); }
+  .vazio { color: var(--muted); padding: 10px 0 0; margin: 0; }
+  .dica { color: var(--muted); font-size: .85rem; margin: 10px 0 0; }
+
+  @media (max-width: 560px) {
+    .busca { grid-template-columns: 1fr; }
+    .campos { grid-template-columns: 1fr; }
+    .campos .full { grid-column: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>CRUD da Biblioteca</h1>
+  <p class="intro">Digite o código e clique em Buscar. Se ele não existir, dá para cadastrar. Se existir, dá para alterar ou excluir, igual ao programa em C#.</p>
+
+  <div class="tabs" role="tablist" aria-label="Cadastros">
+    <button class="tab" role="tab" id="tab-livros" aria-selected="true">Livros</button>
+    <button class="tab" role="tab" id="tab-alunos" aria-selected="false">Alunos</button>
+  </div>
+
+  <section class="card" aria-labelledby="titulo-form">
+    <h2 id="titulo-form">Cadastro de Livros</h2>
+
+    <form id="form-busca" class="busca" autocomplete="off">
+      <div>
+        <label for="chave" id="rotulo-chave">ISBN</label>
+        <input id="chave" type="text" required>
+      </div>
+      <button class="btn primario" type="submit" id="btn-buscar">Buscar</button>
+    </form>
+
+    <div class="campos" id="campos"></div>
+
+    <p class="msg" id="msg" role="status" aria-live="polite"></p>
+    <div class="acoes" id="acoes"></div>
+  </section>
+
+  <section class="card" aria-labelledby="titulo-lista">
+    <h2 id="titulo-lista">Registros cadastrados</h2>
+    <div class="tabela" id="tabela"></div>
+    <p class="dica">Clique em uma linha para abrir o registro.</p>
+  </section>
+
+</div>
+
+<script>
+  // ---------------------------------------------------------------
+  // Configuração de cada cadastro (equivale aos Models do C#)
+  // ---------------------------------------------------------------
+  var cadastros = {
+    livros: {
+      titulo: "Cadastro de Livros",
+      chave: "isbn",
+      rotuloChave: "ISBN",
+      nomeUm: "Livro",
+      campos: [
+        { id: "titulo",  rotulo: "Título",  tipo: "text",   cheio: true },
+        { id: "autor",   rotulo: "Autor",   tipo: "text" },
+        { id: "genero",  rotulo: "Gênero",  tipo: "text" },
+        { id: "paginas", rotulo: "Páginas", tipo: "number" }
+      ],
+      // começa com 1 registro, igual ao construtor do controller
+      dados: [
+        { isbn: "123", titulo: "Faca", autor: "Jo Nesbo", genero: "Policial", paginas: 450 }
+      ]
+    },
+    alunos: {
+      titulo: "Cadastro de Alunos",
+      chave: "matricula",
+      rotuloChave: "Matrícula",
+      nomeUm: "Aluno",
+      campos: [
+        { id: "nome",     rotulo: "Nome",     tipo: "text",  cheio: true },
+        { id: "email",    rotulo: "Email",    tipo: "email" },
+        { id: "telefone", rotulo: "Telefone", tipo: "text" }
+      ],
+      dados: [
+        { matricula: "123", nome: "Zé Colmeia", email: "zecolmeia@gmail.com", telefone: "99967-8976" }
+      ]
+    }
+  };
+
+  // ---------------------------------------------------------------
+  // Estado da tela
+  //   "inicio"    ainda não buscou nada
+  //   "novo"      código não existe, digitando os dados para cadastrar
+  //   "achou"     código existe, mostrando os dados
+  //   "alterando" editando os dados de um registro que existe
+  //   "excluindo" esperando a confirmação da exclusão
+  // ---------------------------------------------------------------
+  var atual = "livros";
+  var modo = "inicio";
+  var posicao = -1;
+
+  var elChave = document.getElementById("chave");
+  var elCampos = document.getElementById("campos");
+  var elMsg = document.getElementById("msg");
+  var elAcoes = document.getElementById("acoes");
+  var elTabela = document.getElementById("tabela");
+
+  function cfg() { return cadastros[atual]; }
+
+  // procura pelo código e devolve a posição (ou -1), igual ao método Buscar do C#
+  function buscar(codigo) {
+    var lista = cfg().dados;
+    for (var i = 0; i < lista.length; i++) {
+      if (lista[i][cfg().chave] === codigo) return i;
+    }
+    return -1;
+  }
+
+  function mensagem(texto, tipo) {
+    elMsg.textContent = texto;
+    elMsg.className = "msg" + (tipo ? " " + tipo : "");
+  }
+
+  // ----- desenha os campos do formulário -----
+  function desenharCampos() {
+    elCampos.innerHTML = "";
+    cfg().campos.forEach(function (c) {
+      var box = document.createElement("div");
+      if (c.cheio) box.className = "full";
+      var lb = document.createElement("label");
+      lb.htmlFor = "f-" + c.id;
+      lb.textContent = c.rotulo;
+      var inp = document.createElement("input");
+      inp.id = "f-" + c.id;
+      inp.type = c.tipo;
+      if (c.tipo === "number") inp.min = "0";
+      box.appendChild(lb);
+      box.appendChild(inp);
+      elCampos.appendChild(box);
+    });
+  }
+
+  function lerCampos() {
+    var obj = {};
+    obj[cfg().chave] = elChave.value.trim();
+    cfg().campos.forEach(function (c) {
+      var v = document.getElementById("f-" + c.id).value.trim();
+      // páginas é número, se não for número fica 0 (igual ao TryParse do C#)
+      obj[c.id] = c.tipo === "number" ? (parseInt(v, 10) || 0) : v;
+    });
+    return obj;
+  }
+
+  function preencherCampos(obj) {
+    cfg().campos.forEach(function (c) {
+      document.getElementById("f-" + c.id).value = obj ? obj[c.id] : "";
+    });
+  }
+
+  function habilitarCampos(sim) {
+    cfg().campos.forEach(function (c) {
+      document.getElementById("f-" + c.id).disabled = !sim;
+    });
+  }
+
+  // ----- botões de acordo com o modo -----
+  function botao(texto, classe, aoClicar) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn " + (classe || "");
+    b.textContent = texto;
+    b.addEventListener("click", aoClicar);
+    return b;
+  }
+
+  function desenharAcoes() {
+    elAcoes.innerHTML = "";
+    if (modo === "novo") {
+      elAcoes.appendChild(botao("Salvar cadastro", "primario", salvarNovo));
+      elAcoes.appendChild(botao("Cancelar", "", voltar));
+    } else if (modo === "achou") {
+      elAcoes.appendChild(botao("Alterar", "primario", iniciarAlteracao));
+      elAcoes.appendChild(botao("Excluir", "perigo", pedirExclusao));
+      elAcoes.appendChild(botao("Voltar", "", voltar));
+    } else if (modo === "alterando") {
+      elAcoes.appendChild(botao("Salvar alteração", "primario", salvarAlteracao));
+      elAcoes.appendChild(botao("Cancelar", "", cancelarAlteracao));
+    } else if (modo === "excluindo") {
+      elAcoes.appendChild(botao("Sim, excluir", "perigo cheio", confirmarExclusao));
+      elAcoes.appendChild(botao("Não", "", function () { modo = "achou"; mensagem(""); atualizarTela(); }));
+    }
+  }
+
+  function atualizarTela() {
+    habilitarCampos(modo === "novo" || modo === "alterando");
+    elChave.disabled = modo !== "inicio";
+    document.getElementById("btn-buscar").disabled = modo !== "inicio";
+    desenharAcoes();
+    desenharTabela();
+  }
+
+  // ----- ações (equivalem ao ExecutarCRUD do controller) -----
+  function voltar() {
+    modo = "inicio";
+    posicao = -1;
+    elChave.value = "";
+    preencherCampos(null);
+    mensagem("");
+    atualizarTela();
+    elChave.focus();
+  }
+
+  function salvarNovo() {
+    cfg().dados.push(lerCampos());
+    mensagem(cfg().nomeUm + " cadastrado com sucesso.", "ok");
+    modo = "achou";
+    posicao = buscar(elChave.value.trim());
+    atualizarTela();
+  }
+
+  function iniciarAlteracao() {
+    modo = "alterando";
+    mensagem("Altere os dados e confirme.");
+    atualizarTela();
+    var primeiro = document.getElementById("f-" + cfg().campos[0].id);
+    primeiro.focus();
+  }
+
+  function salvarAlteracao() {
+    // troca o registro antigo por um novo, mantendo o mesmo código
+    cfg().dados[posicao] = lerCampos();
+    mensagem(cfg().nomeUm + " alterado com sucesso.", "ok");
+    modo = "achou";
+    atualizarTela();
+  }
+
+  function cancelarAlteracao() {
+    preencherCampos(cfg().dados[posicao]);
+    mensagem("Alteração cancelada. Nada foi mudado.");
+    modo = "achou";
+    atualizarTela();
+  }
+
+  function pedirExclusao() {
+    modo = "excluindo";
+    mensagem("Confirma a exclusão deste registro?", "erro");
+    atualizarTela();
+  }
+
+  function confirmarExclusao() {
+    cfg().dados.splice(posicao, 1);
+    var nome = cfg().nomeUm;
+    voltar();
+    mensagem(nome + " excluído.", "ok");
+  }
+
+  // ----- busca pelo código -----
+  document.getElementById("form-busca").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var codigo = elChave.value.trim();
+    if (codigo === "") return;
+
+    posicao = buscar(codigo);
+    if (posicao === -1) {
+      // não existe, deixa digitar os demais dados para cadastrar
+      modo = "novo";
+      preencherCampos(null);
+      mensagem("Esse código não existe. Preencha os dados para cadastrar.");
+    } else {
+      // existe, mostra os dados e oferece alterar ou excluir
+      modo = "achou";
+      preencherCampos(cfg().dados[posicao]);
+      mensagem(cfg().nomeUm + " encontrado.");
+    }
+    atualizarTela();
+    if (modo === "novo") document.getElementById("f-" + cfg().campos[0].id).focus();
+  });
+
+  // ----- tabela com todos os registros -----
+  function desenharTabela() {
+    elTabela.innerHTML = "";
+    var lista = cfg().dados;
+    if (lista.length === 0) {
+      var p = document.createElement("p");
+      p.className = "vazio";
+      p.textContent = "Nenhum registro cadastrado.";
+      elTabela.appendChild(p);
+      return;
+    }
+    var t = document.createElement("table");
+    var cab = document.createElement("tr");
+    [{ id: cfg().chave, rotulo: cfg().rotuloChave }].concat(cfg().campos).forEach(function (c) {
+      var th = document.createElement("th");
+      th.textContent = c.rotulo;
+      cab.appendChild(th);
+    });
+    var thead = document.createElement("thead");
+    thead.appendChild(cab);
+    t.appendChild(thead);
+
+    var tbody = document.createElement("tbody");
+    lista.forEach(function (reg) {
+      var tr = document.createElement("tr");
+      [cfg().chave].concat(cfg().campos.map(function (c) { return c.id; })).forEach(function (id) {
+        var td = document.createElement("td");
+        td.textContent = reg[id];
+        tr.appendChild(td);
+      });
+      tr.addEventListener("click", function () {
+        if (modo !== "inicio") return;
+        elChave.value = reg[cfg().chave];
+        document.getElementById("form-busca").requestSubmit();
+      });
+      tbody.appendChild(tr);
+    });
+    t.appendChild(tbody);
+    elTabela.appendChild(t);
+  }
+
+  // ----- abas -----
+  function trocarCadastro(qual) {
+    atual = qual;
+    document.getElementById("tab-livros").setAttribute("aria-selected", qual === "livros");
+    document.getElementById("tab-alunos").setAttribute("aria-selected", qual === "alunos");
+    document.getElementById("titulo-form").textContent = cfg().titulo;
+    document.getElementById("rotulo-chave").textContent = cfg().rotuloChave;
+    desenharCampos();
+    voltar();
+  }
+  document.getElementById("tab-livros").addEventListener("click", function () { trocarCadastro("livros"); });
+  document.getElementById("tab-alunos").addEventListener("click", function () { trocarCadastro("alunos"); });
+
+  trocarCadastro("livros");
+</script>
+</body>
+</html>
